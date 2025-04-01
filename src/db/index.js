@@ -1,34 +1,47 @@
 const { Pool } = require('pg')
 
-const pool = new Pool({
-  user: process.env.DATABASE_USER,
-  host: process.env.DATABASE_HOST,
-  database: process.env.DATABASE_NAME,
-  password: process.env.DATABASE_PASSWORD,
-  port: process.env.DATABASE_PORT,
-})
+// environment variables PGUSER, PGPASSWORD, PGHOST, PGDATABASE, PGPORT in .env
+const pool = new Pool()
 
-// id: uuid, numeric values more specific?
 const createIngredients = `
 CREATE TABLE IF NOT EXISTS ingredients (
-  "id" serial primary key,
-  "name" varchar(100) not null,
-  "amount" numeric not null,
-  "unit" varchar(50) not null,
-  "price_per_kg" numeric not null
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(100) NOT NULL,
+  amount NUMERIC(6, 2) NOT NULL,
+  unit VARCHAR(50) NOT NULL,
+  price_per_kg NUMERIC(6, 2) NOT NULL
 );
 `
+
+const createRecipes = `
+CREATE TABLE IF NOT EXISTS recipes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title VARCHAR(200) NOT NULL,
+  description TEXT,
+  servings SMALLINT NOT NULL,
+  ingredients JSONB [] NOT NULL,
+  ingredients_from_pantry JSONB [],
+  instructions TEXT [] NOT NULL,
+  price NUMERIC(6, 2),
+  price_per_serving NUMERIC(6, 2)
+);
+`
+// ingredients_from_pantry could be a text array of ids?
+// or separate table for linked ingredients
+// relationship table
+// e.g. recipe_id | ingredient_id | quantity | price_per_kg
+// dates are DATE -> e.g. 2017-05-29 in psql, will become js Date object in js
+// for timestamp should use TIMESTAMPZ
 
 const setup = async () => {
   try {
     await pool.query(createIngredients)
+    await pool.query(createRecipes)
     console.log('Database setup is done.')
   } catch (err) {
     console.error(err)
   }
 }
-
-setup()
 
 const query = async (text, params) => {
   const start = Date.now()
@@ -38,4 +51,4 @@ const query = async (text, params) => {
   return res
 }
 
-module.exports = { query }
+module.exports = { setup, query }
