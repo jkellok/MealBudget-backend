@@ -10,12 +10,14 @@ const app = express()
 
 const pantryRouter = require('./routes/ingredients')
 const recipesRouter = require('./routes/recipes')
+const linkedIngredientsRouter = require('./routes/linked_ingredients')
 
 app.use(cors())
 app.use(express.json())
 
 app.use('/api/pantry', pantryRouter)
 app.use('/api/recipes', recipesRouter)
+app.use('/api/linked_ingredients', linkedIngredientsRouter)
 
 app.get('/', (req, res) => {
   res.send('<h1>Hello World!</h1>')
