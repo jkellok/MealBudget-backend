@@ -40,7 +40,7 @@ const create = async (req, res) => {
 const getById = async (req, res) => {
   try {
     const { id } = req.params
-    const query = 'SELECT * FROM ingredients WHERE id = $1;'
+    const query = 'SELECT * FROM ingredients WHERE ingredient_id = $1;'
     const { rows } = await db.query(query, [id])
     if (rows.length === 0) {
       return res.status(404).send('No ingredient found!')
@@ -57,9 +57,6 @@ const updateById = async (req, res) => {
     const { id } = req.params
     const { name, amount, unit, pricePerKg } = req.body
 
-    console.log('REQ PARAMS', req.params)
-    console.log('REQ BODY', req.body)
-
     // change this later to use Object.keys to pick columns
     // e.g. https://stackoverflow.com/questions/21759852/easier-way-to-update-data-with-node-postgres
 
@@ -73,7 +70,7 @@ const updateById = async (req, res) => {
           amount = COALESCE($2, amount),
           unit = COALESCE($3, unit),
           price_per_kg = COALESCE($4, price_per_kg)
-      WHERE id = $5
+      WHERE ingredient_id = $5
       RETURNING *;
     `
     const { rows } = await db.query(query, [name, amount, unit, pricePerKg, id])
@@ -89,11 +86,9 @@ const updateById = async (req, res) => {
 }
 
 const deleteById = async (req, res) => {
-  console.log('IN DELETE BY ID')
   try {
-    console.log('req params', req.params)
     const { id } = req.params
-    const query = 'DELETE FROM ingredients WHERE id = $1 RETURNING *;'
+    const query = 'DELETE FROM ingredients WHERE ingredient_id = $1 RETURNING *;'
     const { rows } = await db.query(query, [id])
 
     if (rows.length === 0) {
