@@ -14,18 +14,18 @@ const getAll = async (req, res) => {
 
 const create = async (req, res) => {
   // change later
-  const { name, amount, unit, pricePerKg } = req.body
-  if (!name || !amount || !unit || !pricePerKg) {
+  const { name, amount, unit, costPerKg, costPerUnit, expirationDate, buyDate, aisle, brand, store, onSale, inPantry } = req.body
+  if (!name || !amount || !unit || !costPerKg) {
     return res.status(400).send('Required variables missing!')
   }
 
   try {
     const query = `
-      INSERT INTO ingredients (name, amount, unit, price_per_kg)
-      VALUES ($1, $2, $3, $4)
+      INSERT INTO ingredients (name, amount, unit, cost_per_kg, cost_per_unit, expiration_date, buy_date, aisle, brand, store, on_sale, in_pantry)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING *;
     `
-    const values = [name, amount, unit, pricePerKg]
+    const values = [name, amount, unit, costPerKg, costPerUnit, expirationDate, buyDate, aisle, brand, store, onSale, inPantry]
     const { rows } = await db.query(query, values)
     if (rows.length === 0) {
       return res.status(404).send('No ingredient found!')
@@ -55,12 +55,12 @@ const getById = async (req, res) => {
 const updateById = async (req, res) => {
   try {
     const { id } = req.params
-    const { name, amount, unit, pricePerKg } = req.body
+    const { name, amount, unit, costPerKg, costPerUnit, expirationDate, buyDate, aisle, brand, store, onSale, inPantry } = req.body
 
     // change this later to use Object.keys to pick columns
     // e.g. https://stackoverflow.com/questions/21759852/easier-way-to-update-data-with-node-postgres
 
-    if (!name || !amount || !unit || !pricePerKg) {
+    if (!name || !amount || !unit || !costPerKg) {
       return res.status(400).send('Required variables missing!')
     }
 
@@ -69,11 +69,20 @@ const updateById = async (req, res) => {
       SET name = COALESCE($1, name),
           amount = COALESCE($2, amount),
           unit = COALESCE($3, unit),
-          price_per_kg = COALESCE($4, price_per_kg)
-      WHERE ingredient_id = $5
+          cost_per_kg = COALESCE($4, cost_per_kg),
+          cost_per_unit = $5,
+          expiration_date = $6,
+          buy_date = $7,
+          aisle = $8,
+          brand = $9,
+          store = $10,
+          on_sale = $11,
+          in_pantry = $12
+      WHERE ingredient_id = $13
       RETURNING *;
     `
-    const { rows } = await db.query(query, [name, amount, unit, pricePerKg, id])
+    const values = [name, amount, unit, costPerKg, costPerUnit, expirationDate, buyDate, aisle, brand, store, onSale, inPantry, id]
+    const { rows } = await db.query(query, values)
 
     if (rows.length === 0) {
       return res.status(404).send('No ingredient found!')

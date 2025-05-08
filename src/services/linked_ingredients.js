@@ -1,4 +1,5 @@
 const db = require('../db/index')
+const { calculateIngredientCost } = require('../utils/calculateCost')
 
 // prob not needed
 const getAll = async (req, res) => {
@@ -16,7 +17,7 @@ const getLinkedIngredientsByRecipe = async (req, res) => {
   try {
     const { recipe_id } = req.params
     const query = `
-    SELECT r_i.ingredient_id, r_i.recipe_id, r_i.amount_for_recipe, r_i.unit_for_recipe, r_i.price_per_kg_for_recipe, i.name
+    SELECT r_i.ingredient_id, r_i.recipe_id, r_i.ingredient_amount, r_i.ingredient_unit, r_i.ingredient_cost, i.name, i.cost_per_kg
     FROM recipes_ingredients r_i
     JOIN ingredients i ON r_i.ingredient_id = i.ingredient_id
     WHERE r_i.recipe_id = $1;
@@ -26,6 +27,27 @@ const getLinkedIngredientsByRecipe = async (req, res) => {
       return res.status(404).send('No linked ingredients found!')
     }
     res.status(200).json(rows)
+  } catch (err) {
+    console.error(err)
+    res.status(500).send('Failed getting data')
+  }
+}
+
+const getLinkedIngredientCostPerKg = async (req, res) => {
+  try {
+    // is recipe_id needed?
+    const { recipe_id, ingredient_id } = req.params
+    const query = `
+    SELECT i.cost_per_kg
+    FROM recipes_ingredients r_i
+    JOIN ingredients i ON r_i.ingredient_id = i.ingredient_id
+    WHERE r_i.recipe_id = $1 AND r_i.ingredient_id = $2;
+    `
+    const { rows } = await db.query(query, [recipe_id, ingredient_id])
+    if (rows.length === 0) {
+      return res.status(404).send('No linked ingredient found!')
+    }
+    res.status(200).json(rows[0])
   } catch (err) {
     console.error(err)
     res.status(500).send('Failed getting data')
@@ -73,7 +95,7 @@ const addLinkedIngredient = async (req, res) => {
   // first find ingredient with same name in the pantry
   try {
     const { name, amount, unit } = req.body
-    const query = 'SELECT ingredient_id, price_per_kg FROM ingredients WHERE name = $1;'
+    const query = 'SELECT ingredient_id, cost_per_kg FROM ingredients WHERE name = $1;'
     const { rows } = await db.query(query, [name])
     if (rows.length === 0) {
       return res.status(404).send('No ingredient found in pantry!')
@@ -82,22 +104,31 @@ const addLinkedIngredient = async (req, res) => {
 
     const { recipe_id } = req.params
     const ingredient_id = ingredientToLink.ingredient_id
-    const amount_for_recipe = amount
-    const unit_for_recipe = unit
-    const price_per_kg_for_recipe = ingredientToLink.price_per_kg
+    const ingredient_amount = amount
+    const ingredient_unit = unit
+    //const ingredient_cost = ingredientToLink.cost_per_kg
 
-    if (!ingredient_id || !amount_for_recipe || !unit_for_recipe || !price_per_kg_for_recipe) {
+    if (!ingredient_id || !ingredient_amount || !ingredient_unit) {
       return res.status(400).send('Required variables missing!')
     }
+
+    // calculate ingredient cost
+    const ingredientForCostCalculation = {
+      cost_per_kg: ingredientToLink.cost_per_kg,
+      ingredient_unit: unit,
+      ingredient_amount: amount
+    }
+
+    const calculatedCost = calculateIngredientCost(ingredientForCostCalculation)
 
     // then try linking the found ingredient to the recipe
     try {
       const query = `
-        INSERT INTO recipes_ingredients (recipe_id, ingredient_id, amount_for_recipe, unit_for_recipe, price_per_kg_for_recipe)
+        INSERT INTO recipes_ingredients (recipe_id, ingredient_id, ingredient_amount, ingredient_unit, ingredient_cost)
         VALUES ($1, $2, $3, $4, $5)
         RETURNING *;
       `
-      const values = [recipe_id, ingredient_id, amount_for_recipe, unit_for_recipe, price_per_kg_for_recipe]
+      const values = [recipe_id, ingredient_id, ingredient_amount, ingredient_unit, calculatedCost]
       const { rows } = await db.query(query, values)
       if (rows.length === 0) {
         return res.status(404).send('Adding ingredient failed!')
@@ -113,26 +144,80 @@ const addLinkedIngredient = async (req, res) => {
   }
 }
 
-// CHANGE
-/* const updateLinkedIngredient = async (req, res) => {
+const updateLinkedIngredient = async (req, res) => {
   try {
-    const { id } = req.params
-    const { name, amount, unit, pricePerKg } = req.body
+    const { recipe_id } = req.params
+    const { name, amount, unit } = req.body
 
-    if (!name || !amount || !unit || !pricePerKg) {
+    if (!name || !amount || !unit) {
+      return res.status(400).send('Required variables missing!')
+    }
+
+    // find if a linked ingredient exists based on ingredient name
+    const findQuery = `
+      SELECT r_i.ingredient_id, i.cost_per_kg
+      FROM recipes_ingredients r_i
+      JOIN ingredients i ON r_i.ingredient_id = i.ingredient_id
+      WHERE i.name = $1 AND r_i.recipe_id = $2;
+    `
+    const { rows } = await db.query(findQuery, [name, recipe_id])
+    const foundLinkedIngredient = rows[0]
+    if (rows.length === 0) {
+      return res.status(404).send('No ingredient found in pantry!')
+    }
+    else {
+      // if found linked ingredient, recalculate cost and update amount, unit, cost
+      try {
+        const ingredientForCostCalculation = {
+          cost_per_kg: foundLinkedIngredient.cost_per_kg,
+          ingredient_unit: unit,
+          ingredient_amount: amount
+        }
+        const calculatedCost = calculateIngredientCost(ingredientForCostCalculation)
+
+        const query = `
+          UPDATE recipes_ingredients
+          SET ingredient_amount = COALESCE($1, ingredient_amount),
+              ingredient_unit = COALESCE($2, ingredient_unit),
+              ingredient_cost = COALESCE($3, ingredient_cost)
+          WHERE ingredient_id = $4 AND recipe_id = $5
+          RETURNING *;
+        `
+        const values = [amount, unit, calculatedCost, foundLinkedIngredient.ingredient_id, recipe_id]
+        const { rows } = await db.query(query, values)
+
+        if (rows.length === 0) {
+          return res.status(404).send('No ingredient found!')
+        }
+        res.status(200).json(rows[0])
+      } catch (err) {
+        console.error(err)
+        res.status(500).send('Failed updating the linked ingredient!')
+      }
+    }
+  } catch (err) {
+    console.error(err)
+    res.status(500).send('Failed updating the linked ingredient!')
+  }
+}
+
+const updateLinkedIngredientCost = async (req, res) => {
+  try {
+    // could get cost_per_kg from ingredients here, if we do calculation in backend
+    const { recipe_id, ingredient_id } = req.params
+    const { ingredient_cost } = req.body
+
+    if (!ingredient_cost) {
       return res.status(400).send('Required variables missing!')
     }
 
     const query = `
-      UPDATE ingredients
-      SET name = COALESCE($1, name),
-          amount = COALESCE($2, amount),
-          unit = COALESCE($3, unit),
-          price_per_kg = COALESCE($4, price_per_kg)
-      WHERE ingredient_id = $5
+      UPDATE recipes_ingredients
+      SET ingredient_cost = COALESCE($1, ingredient_cost)
+      WHERE recipe_id = $2 AND ingredient_id = $3
       RETURNING *;
     `
-    const { rows } = await db.query(query, [name, amount, unit, pricePerKg, id])
+    const { rows } = await db.query(query, [ingredient_cost, recipe_id, ingredient_id])
 
     if (rows.length === 0) {
       return res.status(404).send('No ingredient found!')
@@ -140,9 +225,9 @@ const addLinkedIngredient = async (req, res) => {
     res.status(200).json(rows[0])
   } catch (err) {
     console.error(err)
-    res.status(500).send('Failed updating the linked ingredient!')
+    res.status(500).send('Failed updating the cost of a linked ingredient!')
   }
-} */
+}
 
 const deleteLinkedIngredientFromRecipe = async (req, res) => {
   try {
@@ -163,9 +248,11 @@ const deleteLinkedIngredientFromRecipe = async (req, res) => {
 module.exports = {
   getAll,
   getLinkedIngredientsByRecipe,
+  getLinkedIngredientCostPerKg,
   getOneLinkedIngredientByRecipe,
   getRecipesByIngredient,
   addLinkedIngredient,
-  //updateById,
+  updateLinkedIngredient,
+  updateLinkedIngredientCost,
   deleteLinkedIngredientFromRecipe
 }
