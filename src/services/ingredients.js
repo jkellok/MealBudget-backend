@@ -12,20 +12,36 @@ const getAll = async (req, res) => {
   }
 }
 
+const getAllByUser = async (req, res) => {
+  try {
+    const { user_id } = req.params
+    console.log('user id in get by user backend', user_id)
+    // ORDER BY ?
+    const query = 'SELECT * FROM ingredients WHERE user_id = $1;'
+    const { rows } = await db.query(query, [user_id])
+    res.status(200).json(rows)
+  } catch (err) {
+    console.error(err)
+    res.status(500).send('Failed getting data')
+  }
+}
+
 const create = async (req, res) => {
   // change later
-  const { name, amount, unit, costPerKg, costPerUnit, expirationDate, buyDate, aisle, brand, store, onSale, inPantry } = req.body
+  const { name, amount, unit, costPerKg, costPerUnit, expirationDate, buyDate, aisle, brand, store, onSale, inPantry} = req.body
+  const { user_id } = req.params
+  console.log('user id req params create', user_id)
   if (!name || !amount || !unit || !costPerKg) {
     return res.status(400).send('Required variables missing!')
   }
 
   try {
     const query = `
-      INSERT INTO ingredients (name, amount, unit, cost_per_kg, cost_per_unit, expiration_date, buy_date, aisle, brand, store, on_sale, in_pantry)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      INSERT INTO ingredients (name, amount, unit, cost_per_kg, cost_per_unit, expiration_date, buy_date, aisle, brand, store, on_sale, in_pantry, user_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING *;
     `
-    const values = [name, amount, unit, costPerKg, costPerUnit, expirationDate, buyDate, aisle, brand, store, onSale, inPantry]
+    const values = [name, amount, unit, costPerKg, costPerUnit, expirationDate, buyDate, aisle, brand, store, onSale, inPantry, user_id]
     const { rows } = await db.query(query, values)
     if (rows.length === 0) {
       return res.status(404).send('No ingredient found!')
@@ -39,9 +55,9 @@ const create = async (req, res) => {
 
 const getById = async (req, res) => {
   try {
-    const { id } = req.params
-    const query = 'SELECT * FROM ingredients WHERE ingredient_id = $1;'
-    const { rows } = await db.query(query, [id])
+    const { id, user_id } = req.params
+    const query = 'SELECT * FROM ingredients WHERE ingredient_id = $1 AND user_id = $2;'
+    const { rows } = await db.query(query, [id, user_id])
     if (rows.length === 0) {
       return res.status(404).send('No ingredient found!')
     }
@@ -54,7 +70,7 @@ const getById = async (req, res) => {
 
 const updateById = async (req, res) => {
   try {
-    const { id } = req.params
+    const { id, user_id } = req.params
     const { name, amount, unit, costPerKg, costPerUnit, expirationDate, buyDate, aisle, brand, store, onSale, inPantry } = req.body
 
     // change this later to use Object.keys to pick columns
@@ -78,10 +94,10 @@ const updateById = async (req, res) => {
           store = $10,
           on_sale = $11,
           in_pantry = $12
-      WHERE ingredient_id = $13
+      WHERE ingredient_id = $13 AND user_id = $14
       RETURNING *;
     `
-    const values = [name, amount, unit, costPerKg, costPerUnit, expirationDate, buyDate, aisle, brand, store, onSale, inPantry, id]
+    const values = [name, amount, unit, costPerKg, costPerUnit, expirationDate, buyDate, aisle, brand, store, onSale, inPantry, id, user_id]
     const { rows } = await db.query(query, values)
 
     if (rows.length === 0) {
@@ -96,9 +112,9 @@ const updateById = async (req, res) => {
 
 const deleteById = async (req, res) => {
   try {
-    const { id } = req.params
-    const query = 'DELETE FROM ingredients WHERE ingredient_id = $1 RETURNING *;'
-    const { rows } = await db.query(query, [id])
+    const { id, user_id } = req.params
+    const query = 'DELETE FROM ingredients WHERE ingredient_id = $1 AND user_id = $2 RETURNING *;'
+    const { rows } = await db.query(query, [id, user_id])
 
     if (rows.length === 0) {
       return res.status(404).send('No ingredient found!')
@@ -112,6 +128,7 @@ const deleteById = async (req, res) => {
 
 module.exports = {
   getAll,
+  getAllByUser,
   create,
   getById,
   updateById,

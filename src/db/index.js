@@ -17,7 +17,8 @@ CREATE TABLE IF NOT EXISTS ingredients (
   brand VARCHAR(100),
   store VARCHAR(100),
   on_sale BOOLEAN DEFAULT false,
-  in_pantry BOOLEAN DEFAULT true
+  in_pantry BOOLEAN DEFAULT true,
+  user_id INT NOT NULL REFERENCES users(user_id) ON UPDATE CASCADE ON DELETE CASCADE
 );
 `
 // unit cost, if we use pcs in recipes then could calculate cost maybe if user can define how many pieces bought
@@ -43,7 +44,8 @@ CREATE TABLE IF NOT EXISTS recipes (
   minutes_to_make INTEGER,
   notes TEXT,
   image TEXT,
-  is_favorite BOOLEAN DEFAULT FALSE
+  is_favorite BOOLEAN DEFAULT FALSE,
+  user_id INT NOT NULL REFERENCES users(user_id) ON UPDATE CASCADE ON DELETE CASCADE
 );
 `
 // minutes to make, could also break down in active and passive time
@@ -57,9 +59,10 @@ CREATE TABLE IF NOT EXISTS recipes_ingredients (
   CONSTRAINT recipe_ingredient_pkey PRIMARY KEY (recipe_id, ingredient_id),
   ingredient_amount NUMERIC(6, 2) NOT NULL,
   ingredient_unit VARCHAR(20) NOT NULL,
-  ingredient_cost NUMERIC(6, 2)
+  ingredient_cost NUMERIC(6, 2),
 );
 `
+// user_id to recipes_ingredients?
 
 // based on ingredient name?
 // old ingredients might be deleted or they are updated
@@ -74,6 +77,14 @@ CREATE TABLE IF NOT EXISTS price_history (
 );
 `
 
+const createUsers = `
+CREATE TABLE IF NOT EXISTS users (
+  user_id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  username TEXT UNIQUE NOT NULL,
+  password TEXT NOT NULL
+)
+`
+
 // nutrition table? calories, fat, carbohydrates, protein, etc.
 // grocery list table, id, item
 // meal plan table
@@ -84,6 +95,7 @@ const setup = async () => {
     await pool.query(createIngredients)
     await pool.query(createRecipes)
     await pool.query(createRecipesIngredients)
+    await pool.query(createUsers)
     console.log('Database setup is done.')
   } catch (err) {
     console.error(err)

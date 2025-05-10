@@ -11,6 +11,8 @@ const app = express()
 const pantryRouter = require('./routes/ingredients')
 const recipesRouter = require('./routes/recipes')
 const linkedIngredientsRouter = require('./routes/linked_ingredients')
+const loginRouter = require('./routes/login')
+const usersRouter = require('./routes/users')
 
 app.use(cors())
 app.use(express.json())
@@ -18,6 +20,8 @@ app.use(express.json())
 app.use('/api/pantry', pantryRouter)
 app.use('/api/recipes', recipesRouter)
 app.use('/api/linked_ingredients', linkedIngredientsRouter)
+app.use('/api/', loginRouter)
+app.use('/api/users', usersRouter)
 
 app.get('/', (req, res) => {
   res.send('<h1>Hello World!</h1>')

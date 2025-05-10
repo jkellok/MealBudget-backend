@@ -4,12 +4,14 @@ const recipeService = require('../services/recipes')
 
 router.get('/', recipeService.getAll)
 
-router.post('/', recipeService.create)
+router.get('/users/:user_id', recipeService.getAllByUser)
 
-router.get('/:id', recipeService.getById)
+router.post('/users/:user_id', recipeService.create)
 
-router.put('/:id', recipeService.updateById)
+router.get('/users/:user_id/entry/:id', recipeService.getById)
 
-router.delete('/:id', recipeService.deleteById)
+router.put('/users/:user_id/entry/:id', recipeService.updateById)
+
+router.delete('/users/:user_id/entry/:id', recipeService.deleteById)
 
 module.exports = router
