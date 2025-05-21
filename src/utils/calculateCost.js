@@ -7,7 +7,7 @@
 
 // convert unit to kg and assign amount as kg
 // this is just a simple one, not accounting for density differences (yet)
-function getAmountInKilograms({ingredient_amount, ingredient_unit}) {
+function getAmountInKilograms({ingredient_amount, ingredient_unit, weight_per_piece}) {
   switch (ingredient_unit) {
   case 'kg':
   case 'l':
@@ -36,14 +36,18 @@ function getAmountInKilograms({ingredient_amount, ingredient_unit}) {
   case 'lbs':
     return ingredient_amount * 0.454
   case 'pcs':
-    // TEMPORARY FOR EGGS, CHANGE LATER
-    return ingredient_amount * 0.06
+    return ingredient_amount * (weight_per_piece / 1000)
   default:
     console.error('Error in calculating ingredient cost!')
   }
 }
 
 const calculateIngredientCost = (ingredient) => {
+  // use either cost_per_piece or weight_per_piece
+  /*if (ingredient.ingredient_unit === 'pcs') {
+    const calculatedCostForPieces = ingredient.ingredient_amount * ingredient.cost_per_piece
+    return calculatedCostForPieces
+  } */
   const amountInKg = getAmountInKilograms(ingredient)
   const calculatedCost = (amountInKg * ingredient.cost_per_kg).toFixed(2)
   return calculatedCost
