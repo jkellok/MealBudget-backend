@@ -5,11 +5,9 @@ const bcrypt = require('bcryptjs')
 
 const login = async (req, res) => {
   const { username, password } = req.body
-  console.log('username and password in login', username, password)
   if (!username || !password) {
     return res.status(400).send('Required credentials missing!')
   }
-  console.log('logging in with', username, password)
 
   try {
     const query = `
@@ -20,7 +18,6 @@ const login = async (req, res) => {
     if (rows.length === 0) {
       return res.status(404).send({ message: 'No user found!' })
     }
-    console.log('password is', rows[0].password)
     const passwordIsMatch = await bcrypt.compare(password, rows[0].password)
     if (!passwordIsMatch) {
       return res.status(400).send({ message: 'Invalid credentials!' })

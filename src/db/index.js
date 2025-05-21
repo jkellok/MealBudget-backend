@@ -10,7 +10,9 @@ CREATE TABLE IF NOT EXISTS ingredients (
   amount NUMERIC(6, 2) NOT NULL,
   unit VARCHAR(20) NOT NULL,
   cost_per_kg NUMERIC(6, 2) NOT NULL,
-  cost_per_unit NUMERIC(6, 2),
+  cost_per_package NUMERIC(6, 2),
+  cost_per_piece NUMERIC(6, 2),
+  weight_per_piece NUMERIC(6, 2),
   expiration_date DATE,
   buy_date DATE DEFAULT CURRENT_DATE,
   aisle VARCHAR(50),
@@ -24,8 +26,7 @@ CREATE TABLE IF NOT EXISTS ingredients (
 // unit cost, if we use pcs in recipes then could calculate cost maybe if user can define how many pieces bought
 // e.g. 1 carton of eggs, 580g, has 10 eggs, cost 2.15€, so each egg weights 58g -> 0.058kg, 3,71€/kg -> 0.058 * 3.71 = 0.22€
 // or 2.15€ / 10 = 0.22€
-// we can also assume that if ingredient is eggs, they usually weigh about 60g
-// columns with DEFAULT could also have NOT NULL, though passing DEFAULT into query requires some extra code
+// but if we update ingredient, e.g. use 2 eggs, then that could mess with the calculations possibly
 
 const createRecipes = `
 CREATE TABLE IF NOT EXISTS recipes (
@@ -37,7 +38,7 @@ CREATE TABLE IF NOT EXISTS recipes (
   instructions TEXT [] NOT NULL,
   cost_per_serving NUMERIC(6, 2) GENERATED ALWAYS AS (total_cost / servings) STORED,
   total_cost NUMERIC(6, 2),
-  category VARCHAR(100),
+  category VARCHAR(50),
   tags TEXT [],
   difficulty VARCHAR(20),
   rating SMALLINT,
@@ -59,7 +60,7 @@ CREATE TABLE IF NOT EXISTS recipes_ingredients (
   CONSTRAINT recipe_ingredient_pkey PRIMARY KEY (recipe_id, ingredient_id),
   ingredient_amount NUMERIC(6, 2) NOT NULL,
   ingredient_unit VARCHAR(20) NOT NULL,
-  ingredient_cost NUMERIC(6, 2),
+  ingredient_cost NUMERIC(6, 2)
 );
 `
 // user_id to recipes_ingredients?
@@ -85,10 +86,25 @@ CREATE TABLE IF NOT EXISTS users (
 )
 `
 
-// nutrition table? calories, fat, carbohydrates, protein, etc.
+const createNutrition = `
+CREATE TABLE IF NOT EXISTS nutrition (
+  nutrition_id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  ingredient_id INT NOT NULL REFERENCES ingredients(ingredient_id) ON UPDATE CASCADE ON DELETE CASCADE,
+  calories NUMERIC(6, 2),
+  fat NUMERIC(6, 2),
+  unsaturated_fat NUMERIC(6, 2),
+  saturated_fat NUMERIC(6, 2),
+  carbohydrates NUMERIC(6, 2),
+  sugar NUMERIC(6, 2),
+  fiber NUMERIC(6, 2),
+  protein NUMERIC(6, 2),
+  salt NUMERIC(6, 2)
+)
+`
+// calories in kcal, others in g
+
 // grocery list table, id, item
 // meal plan table
-// user table and user id to all
 
 const setup = async () => {
   try {
@@ -96,6 +112,7 @@ const setup = async () => {
     await pool.query(createRecipes)
     await pool.query(createRecipesIngredients)
     await pool.query(createUsers)
+    await pool.query(createNutrition)
     console.log('Database setup is done.')
   } catch (err) {
     console.error(err)

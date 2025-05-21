@@ -4,7 +4,6 @@ const bcrypt = require('bcryptjs')
 // sign up, create new user
 const create = async (req, res) => {
   const { username, password } = req.body
-  console.log('create new user with', username, password)
   try {
     // check if user already exists
     const existingUserQuery = `
@@ -12,14 +11,12 @@ const create = async (req, res) => {
       WHERE username = $1
     `
     const existingUser = await db.query(existingUserQuery, [username])
-    console.log('existinguser', existingUser.rows.length)
 
     if (existingUser.rows.length > 0) {
       return res.status(400).send('User already exists!')
     }
     // hash password
     const passwordHash = await bcrypt.hash(password, 10)
-    console.log('passwordhash is', passwordHash)
     const query = `
       INSERT INTO users (username, password)
       VALUES ($1, $2)

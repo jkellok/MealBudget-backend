@@ -95,7 +95,7 @@ const addLinkedIngredient = async (req, res) => {
   // first find ingredient with same name in the pantry
   try {
     const { name, amount, unit } = req.body
-    const query = 'SELECT ingredient_id, cost_per_kg FROM ingredients WHERE name = $1;'
+    const query = 'SELECT ingredient_id, cost_per_kg, weight_per_piece, cost_per_piece FROM ingredients WHERE name = $1;'
     const { rows } = await db.query(query, [name])
     if (rows.length === 0) {
       return res.status(404).send('No ingredient found in pantry!')
@@ -116,7 +116,9 @@ const addLinkedIngredient = async (req, res) => {
     const ingredientForCostCalculation = {
       cost_per_kg: ingredientToLink.cost_per_kg,
       ingredient_unit: unit,
-      ingredient_amount: amount
+      ingredient_amount: amount,
+      weight_per_piece: ingredientToLink.weight_per_piece,
+      cost_per_piece: ingredientToLink.cost_per_piece
     }
 
     const calculatedCost = calculateIngredientCost(ingredientForCostCalculation)
